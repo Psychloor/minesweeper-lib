@@ -6,6 +6,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MS_SET_EMPTY 0
 #define MS_SET_OCCUPIED 1
 #define MS_SET_DELETED 2
@@ -184,5 +188,9 @@ static inline void Name##_clear(Name *set) {                                    
 static inline bool Name##_is_empty(const Name *set) {                               \
     return set->size == 0;                                                          \
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

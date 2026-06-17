@@ -6,6 +6,10 @@
 #include "MS/MS_Tile.h"
 #include "MS/MS_TileSprite.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @struct MS_Minefield
  * @brief Represents the grid-based minefield in the Minesweeper game.
@@ -332,5 +336,9 @@ int MS_MinefieldGetMineCount(const MS_Minefield *minefield);
  * @return The current state of the game as an `MS_GameState` value.
  */
 MS_GameState MS_MinefieldGetGameState(const MS_Minefield *minefield);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

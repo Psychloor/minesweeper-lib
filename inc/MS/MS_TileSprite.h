@@ -5,6 +5,10 @@
 #ifndef MINESWEEPER_LIB_MS_TILE_SPRITE_H
 #define MINESWEEPER_LIB_MS_TILE_SPRITE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @enum MS_TileSprite
  * @brief Represents the various states and types of tile sprites in the Minesweeper game.
@@ -50,5 +54,9 @@ typedef enum MS_TileSprite {
     MS_TILE_SPRITE_EXPLODED_MINE,
     MS_TILE_SPRITE_COUNT
 } MS_TileSprite;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

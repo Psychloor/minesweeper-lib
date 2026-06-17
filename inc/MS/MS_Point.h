@@ -1,6 +1,10 @@
 #ifndef MINESWEEPER_LIB_MS_POINT_H
 #define MINESWEEPER_LIB_MS_POINT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @struct MS_Point
  * @brief Represents a point in a two-dimensional coordinate system.
@@ -32,5 +36,9 @@ typedef struct MS_Point {
      */
     int y;
 } MS_Point;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //MINESWEEPER_LIB_MS_POINT_H

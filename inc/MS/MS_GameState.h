@@ -1,6 +1,10 @@
 #ifndef MINESWEEPER_LIB_MS_GAME_STATE_H
 #define MINESWEEPER_LIB_MS_GAME_STATE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @enum MS_GameState
  * @brief The possible states of the Minesweeper game.
@@ -22,5 +26,9 @@ typedef enum MS_GameState {
     MINESWEEPER_STATE_WON,
     MINESWEEPER_STATE_ALLOC_ERROR
 } MS_GameState;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

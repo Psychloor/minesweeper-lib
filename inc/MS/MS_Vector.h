@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MS_VECTOR_DEFINE(Type, Name)                                                \
 typedef struct Name {                                                               \
     Type *data;                                                                     \
@@ -118,5 +122,9 @@ static inline void Name##_clear(Name *vector) {                                 
 static inline bool Name##_is_empty(const Name *vector) {                            \
     return vector->size == 0;                                                       \
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
