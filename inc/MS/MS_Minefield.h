@@ -5,6 +5,7 @@
 #include "MS/MS_Point.h"
 #include "MS/MS_Tile.h"
 #include "MS/MS_TileSprite.h"
+#include "MS/MS_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,7 +64,7 @@ typedef struct MS_Minefield {
  * @return Returns true if the minefield was successfully created and initialized,
  *         false if the input minefield pointer is null or initialization fails.
  */
-bool MS_MinefieldCreate(MS_Minefield *minefield, int width, int height, int numMines);
+MS_EXPORT bool MS_MinefieldCreate(MS_Minefield *minefield, int width, int height, int numMines);
 
 /**
  * @brief Resets and initializes the minefield with the specified parameters.
@@ -84,7 +85,7 @@ bool MS_MinefieldCreate(MS_Minefield *minefield, int width, int height, int numM
  * @return A boolean value indicating whether the reset operation was successful.
  *         Returns false if memory reallocation fails or if any invalid parameters are provided.
  */
-bool MS_MinefieldReset(MS_Minefield *minefield, int width, int height, int numMines);
+MS_EXPORT bool MS_MinefieldReset(MS_Minefield *minefield, int width, int height, int numMines);
 
 
 /**
@@ -98,7 +99,7 @@ bool MS_MinefieldReset(MS_Minefield *minefield, int width, int height, int numMi
  * @param minefield Pointer to an MS_Minefield object. If the pointer is NULL,
  *                  the function does nothing.
  */
-void MS_MinefieldDestroy(MS_Minefield *minefield);
+MS_EXPORT void MS_MinefieldDestroy(MS_Minefield *minefield);
 
 /**
  * @brief Handles the process of opening a tile in the Minesweeper game grid.
@@ -116,7 +117,7 @@ void MS_MinefieldDestroy(MS_Minefield *minefield);
  *         - MINESWEEPER_STATE_WON: All non-mine tiles have been successfully opened, and the game is won.
  *         - MINESWEEPER_STATE_ALLOC_ERROR: An error occurred due to memory allocation failure during the operation.
  */
-MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, int xPos, int yPos);
+MS_EXPORT MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, int xPos, int yPos);
 
 /**
  * @brief Toggles the flag or question mark state of a tile in the minefield.
@@ -138,7 +139,7 @@ MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, int xPos, int yPos);
  * @param yPos The y-coordinate of the tile to modify. Must be within the valid range
  *             [0, minefield->height - 1].
  */
-void MS_MinefieldToggleFlag(const MS_Minefield *minefield, int xPos, int yPos);
+MS_EXPORT void MS_MinefieldToggleFlag(const MS_Minefield *minefield, int xPos, int yPos);
 
 /**
  * @brief Retrieves the appropriate sprite for a specific tile in the minefield.
@@ -155,7 +156,7 @@ void MS_MinefieldToggleFlag(const MS_Minefield *minefield, int xPos, int yPos);
  * @param yPos The y-coordinate of the tile. Must be within the range [0, minefield->height).
  * @return The sprite representing the visual state of the tile at the specified position.
  */
-MS_TileSprite MS_MinefieldGetTileSprite(const MS_Minefield *minefield, int xPos, int yPos);
+MS_EXPORT MS_TileSprite MS_MinefieldGetTileSprite(const MS_Minefield *minefield, int xPos, int yPos);
 
 /**
  * @brief Retrieves the tile sprite for a given linear index in the minefield.
@@ -170,7 +171,7 @@ MS_TileSprite MS_MinefieldGetTileSprite(const MS_Minefield *minefield, int xPos,
  *               be in the range [0, width * height - 1].
  * @return The tile sprite at the specified index, represented as an `MS_TileSprite` enum.
  */
-MS_TileSprite MS_MinefieldGetTileSpriteIndex(const MS_Minefield *minefield, int index);
+MS_EXPORT MS_TileSprite MS_MinefieldGetTileSpriteIndex(const MS_Minefield *minefield, int index);
 
 /**
  * @brief Determines if a given position is within the boundaries of a minefield.
@@ -185,7 +186,7 @@ MS_TileSprite MS_MinefieldGetTileSpriteIndex(const MS_Minefield *minefield, int 
  * @param yPos The y-coordinate of the position to check.
  * @return true if the specified position is within the boundaries of the minefield; otherwise, false.
  */
-bool MS_MinefieldWithinField(const MS_Minefield *minefield, int xPos, int yPos);
+MS_EXPORT bool MS_MinefieldWithinField(const MS_Minefield *minefield, int xPos, int yPos);
 
 /**
  * @brief Determines if the game is over based on the state of the minefield.
@@ -198,7 +199,7 @@ bool MS_MinefieldWithinField(const MS_Minefield *minefield, int xPos, int yPos);
  *                  Must not be null.
  * @return true if the game state indicates the player has lost; false otherwise.
  */
-bool MS_MinefieldIsGameOver(const MS_Minefield *minefield);
+MS_EXPORT bool MS_MinefieldIsGameOver(const MS_Minefield *minefield);
 
 /**
  * @brief Checks if the given minefield is in a winning state.
@@ -213,7 +214,7 @@ bool MS_MinefieldIsGameOver(const MS_Minefield *minefield);
  *                  condition is violated.
  * @return True if the minefield is in a winning state, false otherwise.
  */
-bool MS_MinefieldIsWin(const MS_Minefield *minefield);
+MS_EXPORT bool MS_MinefieldIsWin(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the explosion point from a given minefield.
@@ -229,7 +230,7 @@ bool MS_MinefieldIsWin(const MS_Minefield *minefield);
  * @note The caller must ensure that the `minefield` parameter is valid and initialized.
  * If the pointer is NULL, an assertion failure will occur.
  */
-MS_Point MS_MinefieldGetExplosionPoint(const MS_Minefield *minefield);
+MS_EXPORT MS_Point MS_MinefieldGetExplosionPoint(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the position of a tile within the minefield, based on its index.
@@ -248,7 +249,7 @@ MS_Point MS_MinefieldGetExplosionPoint(const MS_Minefield *minefield);
  *         within the minefield. The x-coordinate corresponds to the column, and
  *         the y-coordinate corresponds to the row.
  */
-MS_Point MS_MinefieldGetTilePosition(const MS_Minefield *minefield, int tileIndex);
+MS_EXPORT MS_Point MS_MinefieldGetTilePosition(const MS_Minefield *minefield, int tileIndex);
 
 /**
  * @brief Calculates the tile index in a minefield based on the x and y coordinates.
@@ -261,7 +262,7 @@ MS_Point MS_MinefieldGetTilePosition(const MS_Minefield *minefield, int tileInde
  * @param yPos The y-coordinate of the tile within the minefield.
  * @return The computed index of the tile in the minefield's one-dimensional array.
  */
-int MS_MinefieldGetTileIndex(const MS_Minefield *minefield, int xPos, int yPos);
+MS_EXPORT int MS_MinefieldGetTileIndex(const MS_Minefield *minefield, int xPos, int yPos);
 
 /**
  * @brief Retrieves the width of the minefield.
@@ -274,7 +275,7 @@ int MS_MinefieldGetTileIndex(const MS_Minefield *minefield, int xPos, int yPos);
  * @return The width of the minefield as an integer.
  * @note The function will trigger an assertion failure if the provided minefield pointer is null.
  */
-int MS_MinefieldGetWidth(const MS_Minefield *minefield);
+MS_EXPORT int MS_MinefieldGetWidth(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the height of the minefield.
@@ -289,7 +290,7 @@ int MS_MinefieldGetWidth(const MS_Minefield *minefield);
  * If the provided minefield is valid, this value corresponds to the total
  * number of rows in the minefield.
  */
-int MS_MinefieldGetHeight(const MS_Minefield *minefield);
+MS_EXPORT int MS_MinefieldGetHeight(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the total number of tiles in the specified minefield.
@@ -302,7 +303,7 @@ int MS_MinefieldGetHeight(const MS_Minefield *minefield);
  *                  This parameter must not be `NULL`.
  * @return The total number of tiles in the minefield.
  */
-int MS_MinefieldGetTileCount(const MS_Minefield *minefield);
+MS_EXPORT int MS_MinefieldGetTileCount(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the total number of mines in the specified minefield.
@@ -316,7 +317,7 @@ int MS_MinefieldGetTileCount(const MS_Minefield *minefield);
  *                  This parameter must not be NULL, and the behavior is undefined if it is.
  * @return The total number of mines in the minefield as an integer.
  */
-int MS_MinefieldGetMineCount(const MS_Minefield *minefield);
+MS_EXPORT int MS_MinefieldGetMineCount(const MS_Minefield *minefield);
 
 /**
  * @brief Retrieves the current game state of the given minefield.
@@ -335,7 +336,7 @@ int MS_MinefieldGetMineCount(const MS_Minefield *minefield);
  *
  * @return The current state of the game as an `MS_GameState` value.
  */
-MS_GameState MS_MinefieldGetGameState(const MS_Minefield *minefield);
+MS_EXPORT MS_GameState MS_MinefieldGetGameState(const MS_Minefield *minefield);
 
 #ifdef __cplusplus
 }

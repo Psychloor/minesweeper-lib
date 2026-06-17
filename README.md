@@ -1,6 +1,17 @@
 # minesweeper-lib
 
-A C99 static library providing Minesweeper game logic.
+A C99 library providing Minesweeper game logic, buildable as a static or shared library.
+
+## Build Options
+
+The library can be built as either a static or shared library.
+
+- `MINESWEEPER_BUILD_SHARED`: Set to `ON` to build as a shared library (DLL on Windows). Defaults to the value of `BUILD_SHARED_LIBS`.
+
+Example:
+```sh
+cmake -DMINESWEEPER_BUILD_SHARED=ON ..
+```
 
 ## Overview
 
@@ -43,7 +54,7 @@ cmake ..
 cmake --build .
 ```
 
-Produces `minesweeper-lib.lib` (Windows) or `libminesweeper-lib.a` (Linux/macOS).
+Produces `minesweeper-lib.lib` (static) or `minesweeper-lib.dll` / `minesweeper-lib.lib` (shared/import) on Windows. On Linux/macOS, produces `.a` or `.so`/`.dylib`.
 
 ## Integrating with CMake
 
