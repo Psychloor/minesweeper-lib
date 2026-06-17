@@ -28,6 +28,11 @@
  * MS_MinefieldCreate initializes the structure and allocates the internal tile
  * array. MS_MinefieldDestroy releases that internal tile memory when the caller
  * is done with the minefield.
+ *
+ * @note The struct definition is exposed primarily so MS_Minefield has a known
+ * size to user code and can be stack allocated. Treat the fields as implementation
+ * details where possible. Prefer the MS_Minefield* API functions for creating,
+ * resetting, modifying, querying, and destroying the minefield.
  */
 typedef struct MS_Minefield {
     MS_Tile *tiles;
