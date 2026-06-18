@@ -1,50 +1,13 @@
 # minesweeper-lib
 
-A C99 library providing Minesweeper game logic, buildable as a static or shared library.
+A small C99 library that handles Minesweeper game logic. Build it static or shared, drop it into whatever front-end you want: CLI, GUI, game engine, doesn't matter.
 
-## Build Options
-
-The library can be built as either a static or shared library.
-
-- `MINESWEEPER_BUILD_SHARED`: Set to `ON` to build as a shared library (DLL on Windows). Defaults to the value of `BUILD_SHARED_LIBS`.
-
-Example:
-```sh
-cmake -DMINESWEEPER_BUILD_SHARED=ON ..
-```
-
-## Overview
-
-`minesweeper-lib` handles the core mechanics of a Minesweeper game:
-minefield generation, tile management, flag toggling, win/loss detection,
-and rendering queries via tile sprites. It is designed to be integrated into
-any front-end. CLI, GUI, game engine, etc.
-
-The library does not handle input, rendering, or windowing. That is left
-entirely to the consumer.
+It only does the game logic part: minefield generation, opening/flagging tiles, win/loss detection, and telling you what sprite each tile should show. Input handling, rendering, windowing, none of that is here. That's on you.
 
 ## Requirements
 
-- **Language:** C99
-- **Build System:** CMake 3.16 or higher
-- **Compiler:** Any C99 compliant compiler (MSVC, GCC, Clang, etc.)
-
-## Project Structure
-
-```text
-.
-├── CMakeLists.txt
-├── inc/
-│   └── MS/
-│       ├── Minesweeper.h       # Convenience header, includes everything below
-│       ├── MS_Minefield.h      # Minefield struct and full API
-│       ├── MS_GameState.h      # MS_GameState enum
-│       ├── MS_Tile.h           # MS_Tile struct
-│       ├── MS_TileSprite.h     # MS_TileSprite enum
-│       └── MS_Point.h          # MS_Point struct
-└── src/
-    └── MS_Minefield.c
-```
+- C99 compiler (MSVC, GCC, Clang, whatever you've got)
+- CMake 3.16+
 
 ## Build
 
@@ -54,76 +17,94 @@ cmake ..
 cmake --build .
 ```
 
-Produces `minesweeper-lib.lib` (static) or `minesweeper-lib.dll` / `minesweeper-lib.lib` (shared/import) on Windows. On Linux/macOS, produces `.a` or `.so`/`.dylib`.
+That gets you a static lib by default. If you want it shared instead (a DLL on Windows), pass `-DMINESWEEPER_BUILD_SHARED=ON`, or just set `BUILD_SHARED_LIBS` if your project already uses that convention; the option falls back to it.
 
-## Integrating with CMake
+```sh
+cmake -DMINESWEEPER_BUILD_SHARED=ON ..
+```
 
-If you are using CMake in your own project, you can add this library as a
-subdirectory:
+## Adding it to your project
 
-```c++make
+Easiest way is `add_subdirectory`:
+
+```cmake
 add_subdirectory(minesweeper-lib EXCLUDE_FROM_ALL)
 target_link_libraries(your_target PRIVATE minesweeper-lib::minesweeper-lib)
 ```
 
-Then include the master header:
+Then just pull in the one header that includes everything else:
 
-```c++
+```c
 #include "MS/Minesweeper.h"
 ```
 
-## Memory and Tile Size
+## Layout
 
-Each tile (`MS_Tile`) is stored as a single byte using bit fields:
-
-```c++
-typedef struct MS_Tile {
-    bool    isOpen          : 1;  /* revealed                  */
-    bool    isMine          : 1;  /* contains a mine           */
-    bool    isFlagged       : 1;  /* flagged by player         */
-    bool    isQuestionMarked: 1;  /* question-marked by player */
-    uint8_t adjacentMines   : 4;  /* count 0–8                 */
-} MS_Tile;                        /* sizeof(MS_Tile) == 1      */
+```text
+.
+├── CMakeLists.txt
+├── inc/
+│   └── MS/
+│       ├── Minesweeper.h       # pulls in all the headers below
+│       ├── MS_Minefield.h      # the Minefield struct + the whole API
+│       ├── MS_GameState.h
+│       ├── MS_Tile.h
+│       ├── MS_TileSprite.h
+│       └── MS_Point.h
+└── src/
+    └── MS_Minefield.c
 ```
 
-The internal tile array is therefore exactly `width * height` bytes.
-A 30×16 Expert board (the largest standard size) uses 480 bytes for all tiles.
+## How a tile is stored
 
-## Game State and Error Handling
+Each tile is packed into a single byte using bit fields:
+
+```c
+typedef struct MS_Tile {
+    bool    isOpen          : 1;
+    bool    isMine          : 1;
+    bool    isFlagged       : 1;
+    bool    isQuestionMarked: 1;
+    uint8_t adjacentMines   : 4;
+} MS_Tile;
+```
+
+So the whole board is just `width * height` bytes, nothing fancier. A 30×16 Expert board, the biggest standard size, is 480 bytes total for every tile on the field.
+
+## Mines aren't placed up front
+
+`MS_MinefieldCreate` just sets up an empty board. Mines only get placed the first time you call `MS_MinefieldOpenTile`, which is also why that first click is always guaranteed safe, same as the classic Windows Minesweeper behavior.
+
+```c
+MS_Minefield mf;
+
+if (!MS_MinefieldCreate(&mf, 9, 9, 10)) {
+    fprintf(stderr, "Failed to create minefield\n");
+    return 1;
+}
+
+MS_GameState state = MS_MinefieldOpenTile(&mf, 4, 4); // mines get placed right here
+```
+
+## Game state and the one error case you need to handle
 
 `MS_GameState` has four values:
 
-| State                           | Meaning                                                 |
-|---------------------------------|---------------------------------------------------------|
-| `MINESWEEPER_STATE_PLAYING`     | Game is active, moves can be made                       |
-| `MINESWEEPER_STATE_WON`         | All non-mine tiles opened (flagged counts), game is won |
-| `MINESWEEPER_STATE_LOST`        | A mine was opened, game is over                         |
-| `MINESWEEPER_STATE_ALLOC_ERROR` | An internal allocation failed mid-game                  |
+- `MINESWEEPER_STATE_PLAYING`: still going
+- `MINESWEEPER_STATE_WON`: every non-mine tile is open (flagged ones count too)
+- `MINESWEEPER_STATE_LOST`: stepped on a mine
+- `MINESWEEPER_STATE_ALLOC_ERROR`: something failed to allocate mid-move
 
-`MINESWEEPER_STATE_ALLOC_ERROR` can only come from `MS_MinefieldOpenTile`.
-When opening a safe tile, the library temporarily allocates two internal
-buffers to flood-fill connected empty tiles, both freed before the function
-returns:
+That last one only ever comes out of `MS_MinefieldOpenTile`. Here's why it exists: opening a tile on an empty patch of board triggers a flood-fill to clear out all the connected zeros, and that flood-fill needs two scratch buffers along the way:
 
-- **Work stack** - a dynamic array of `(x, y)` coordinate pairs (8 bytes each
-  on 64-bit). Initial capacity is `tileCount / 4` entries.
-- **Visited set** - a hash set of tile indices (`int`), using two separate
-  arrays: 4 bytes per entry for the index and 1 byte per entry for its state.
-  Initial capacity is `tileCount / 4` entries, growing by doubling when 70%
-  full, up to at most `tileCount` entries in the worst case.
+- A work stack of `(x, y)` pairs to visit (8 bytes each on 64-bit), starting at `tileCount / 4` entries.
+- A visited set, implemented as a hash set over tile indices: 4 bytes per entry for the index plus 1 byte for its state, also starting at `tileCount / 4` and doubling once it's 70% full, up to `tileCount` entries worst case.
 
-On a 30×16 board (`tileCount = 480`), the initial allocation is 120 entries
-each, costing roughly **960 bytes** for the stack and **600 bytes** for the
-set. About **1.5 KB** combined at startup, growing only if the fill is large.
-If either allocation fails mid-fill, some tiles that should have been opened
-may not be, and the game is put into the error state. The tile data is not
-corrupted, but further calls to `MS_MinefieldOpenTile` will return early
-without doing anything. The safest recovery is to reset or destroy the
-minefield.
+Both get freed before the function returns either way. On a 30×16 board that's about 960 bytes for the stack and 600 for the set to start, call it 1.5 KB, and it only grows if the empty area you opened is huge.
 
-Always check the return value of `MS_MinefieldOpenTile`:
+If either allocation fails partway through, you can end up with some tiles that should've opened still closed, and the library flips into the error state. Nothing's corrupted, but `MS_MinefieldOpenTile` will just bail out and do nothing on subsequent calls until you reset or destroy the field. That's really the only way out of it.
 
-```c++
+```c
 MS_GameState state = MS_MinefieldOpenTile(&mf, x, y);
 
 switch (state) {
@@ -138,25 +119,20 @@ switch (state) {
     case MINESWEEPER_STATE_ALLOC_ERROR:
         fprintf(stderr, "Out of memory - resetting.\n");
         if (!MS_MinefieldReset(&mf, width, height, mines))
-            MS_MinefieldDestroy(&mf); /* reset also failed */
+            MS_MinefieldDestroy(&mf); // reset failed too, nothing left to do
         break;
 }
 ```
 
-`MS_MinefieldCreate` and `MS_MinefieldReset` return `bool` and do not use
-`MINESWEEPER_STATE_ALLOC_ERROR` they simply return `false` on failure.
+Worth noting: `MS_MinefieldCreate` and `MS_MinefieldReset` don't use this enum at all, they just return `bool`, so a plain `false` means "didn't work."
 
-## Rendering
+## Rendering: two ways to go about it
 
-The library provides `MS_TileSprite` values to describe what each tile should
-look like. There are two approaches for rendering, depending on your needs.
+### Just query it every frame
 
-### Option A: Query every frame
+For normal board sizes this is plenty fast, and it's way less code:
 
-Query sprites directly each frame. Simple, and perfectly fast for normal
-board sizes.
-
-```c++
+```c
 void renderBoard(const MS_Minefield *mf) {
     int width  = MS_MinefieldGetWidth(mf);
     int height = MS_MinefieldGetHeight(mf);
@@ -164,19 +140,17 @@ void renderBoard(const MS_Minefield *mf) {
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             MS_TileSprite sprite = MS_MinefieldGetTileSprite(mf, x, y);
-            /* pass sprite to your draw function */
+            // hand sprite off to your draw call
         }
     }
 }
 ```
 
-### Option B: Cache sprites, update on mutations
+### Or cache it and only refresh when something actually changes
 
-Allocate a sprite array once and refresh it only after actions that change
-tile state: `MS_MinefieldCreate`, `MS_MinefieldReset`, `MS_MinefieldOpenTile`,
-and `MS_MinefieldToggleFlag`.
+If you'd rather not re-query the whole board every frame, allocate a sprite array once and only touch it after calls that actually mutate the field: `MS_MinefieldCreate`, `MS_MinefieldReset`, `MS_MinefieldOpenTile`, `MS_MinefieldToggleFlag`.
 
-```c++
+```c
 void updateSpriteCache(const MS_Minefield *mf, MS_TileSprite *cache) {
     int count = MS_MinefieldGetTileCount(mf);
     for (int i = 0; i < count; ++i) {
@@ -199,20 +173,17 @@ int main(void) {
         return 1;
     }
 
-    /* Initial cache fill after creation */
-    updateSpriteCache(&mf, sprites);
+    updateSpriteCache(&mf, sprites); // fill it right after creation
 
-    /* Open a tile, then refresh the cache */
     MS_GameState state = MS_MinefieldOpenTile(&mf, 4, 4);
     updateSpriteCache(&mf, sprites);
 
-    /* Flag a tile, refresh again */
     MS_MinefieldToggleFlag(&mf, 0, 0);
     updateSpriteCache(&mf, sprites);
 
-    /* sprites[] is now ready to hand to your renderer */
+    // sprites[] is ready for your renderer at this point
 
-    /* Reset to a new game, tileCount may change, so reallocate if needed */
+    // heads up: tileCount can change after a reset, so resize if it does
     MS_MinefieldReset(&mf, 16, 16, 40);
     int newCount = MS_MinefieldGetTileCount(&mf);
     if (newCount != tileCount) {
@@ -233,25 +204,18 @@ int main(void) {
 }
 ```
 
-`MS_MinefieldGetTilePosition` converts a linear index back to `(x, y)` if
-your renderer needs coordinates:
+If you're working from the cache and need actual coordinates back, `MS_MinefieldGetTilePosition` converts a linear index to `(x, y)`:
 
-```c++
+```c
 for (int i = 0; i < tileCount; ++i) {
     MS_Point pos = MS_MinefieldGetTilePosition(&mf, i);
     drawTile(pos.x, pos.y, sprites[i]);
 }
 ```
 
-## Basic Usage Example
+## Putting it together
 
-`MS_Minefield` can be stored on the stack. `MS_MinefieldCreate` allocates
-the internal tile array. `MS_MinefieldDestroy` frees it when you are done.
-
-Mines are not placed at creation time. They are placed on the first call to
-`MS_MinefieldOpenTile`, so the first opened tile is always safe.
-
-```c++
+```c
 #include "MS/Minesweeper.h"
 #include <stdio.h>
 
@@ -326,25 +290,25 @@ int main(void) {
 }
 ```
 
-## API Summary
+## Full API
 
-| Function                         | Description                                         |
-|----------------------------------|-----------------------------------------------------|
-| `MS_MinefieldCreate`             | Initialize a minefield and allocate tiles           |
-| `MS_MinefieldReset`              | Reset to a new game, reusing the same object        |
-| `MS_MinefieldDestroy`            | Free internal tile memory                           |
-| `MS_MinefieldOpenTile`           | Open a tile, returns updated `MS_GameState`         |
-| `MS_MinefieldToggleFlag`         | Cycle tile mark: none → flag → question mark → none |
-| `MS_MinefieldGetTileSprite`      | Get the visual state of a tile by (x, y)            |
-| `MS_MinefieldGetTileSpriteIndex` | Get the visual state of a tile by linear index      |
-| `MS_MinefieldGetGameState`       | Get current `MS_GameState`                          |
-| `MS_MinefieldIsGameOver`         | True if the player lost                             |
-| `MS_MinefieldIsWin`              | True if the player won                              |
-| `MS_MinefieldGetExplosionPoint`  | Get position of the mine that ended the game        |
-| `MS_MinefieldWithinField`        | Check if (x, y) is within bounds                    |
-| `MS_MinefieldGetWidth`           | Board width in tiles                                |
-| `MS_MinefieldGetHeight`          | Board height in tiles                               |
-| `MS_MinefieldGetTileCount`       | Total tile count (width × height)                   |
-| `MS_MinefieldGetMineCount`       | Number of mines                                     |
-| `MS_MinefieldGetTilePosition`    | Convert linear index to (x, y)                      |
-| `MS_MinefieldGetTileIndex`       | Convert (x, y) to linear index                      |
+| Function | What it does |
+|---|---|
+| `MS_MinefieldCreate` | Set up a minefield and allocate its tiles |
+| `MS_MinefieldReset` | Reuse the same object for a fresh game |
+| `MS_MinefieldDestroy` | Free the tile memory |
+| `MS_MinefieldOpenTile` | Open a tile, get back the new `MS_GameState` |
+| `MS_MinefieldToggleFlag` | Cycle a tile: none → flag → question mark → none |
+| `MS_MinefieldGetTileSprite` | Sprite for a tile by `(x, y)` |
+| `MS_MinefieldGetTileSpriteIndex` | Sprite for a tile by linear index |
+| `MS_MinefieldGetGameState` | Current `MS_GameState` |
+| `MS_MinefieldIsGameOver` | True if you lost |
+| `MS_MinefieldIsWin` | True if you won |
+| `MS_MinefieldGetExplosionPoint` | Where the game-ending mine was |
+| `MS_MinefieldWithinField` | Is `(x, y)` actually on the board |
+| `MS_MinefieldGetWidth` | Board width |
+| `MS_MinefieldGetHeight` | Board height |
+| `MS_MinefieldGetTileCount` | `width * height` |
+| `MS_MinefieldGetMineCount` | How many mines |
+| `MS_MinefieldGetTilePosition` | Linear index → `(x, y)` |
+| `MS_MinefieldGetTileIndex` | `(x, y)` → linear index |
