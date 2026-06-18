@@ -158,13 +158,10 @@ void ms_234564334534_checkWinCondition(MS_Minefield *minefield) {
 }
 
 bool MS_MinefieldCreate(MS_Minefield *minefield, const int width, const int height, const int numMines) {
-#ifndef ndebug
     assert(minefield != NULL && "Minefield cannot be null");
-#else
     if (!minefield) {
         return false;
     }
-#endif
 
     minefield->tileCount = 0;
     minefield->tiles = NULL;
@@ -172,17 +169,13 @@ bool MS_MinefieldCreate(MS_Minefield *minefield, const int width, const int heig
 }
 
 bool MS_MinefieldReset(MS_Minefield *minefield, const int width, const int height, const int numMines) {
-#ifndef ndebug
     assert(minefield != NULL && "Minefield cannot be null");
     assert(width > 1 && "Width must be greater than 1");
     assert(height > 1 && "Height must be greater than 1");
     assert(numMines > 0 && "Number of mines must be greater than 0");
-#else
     if (!minefield) {
         return false;
     }
-#endif
-
     if (width < 2 || height < 2 || numMines < 1) {
         return false;
     }

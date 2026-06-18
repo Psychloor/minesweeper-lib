@@ -9,10 +9,10 @@
 #  ifndef MS_EXPORT
 #    ifdef minesweeper_lib_EXPORTS
         /* We are building this library */
-#      define MS_EXPORT __declspec(dllexport)
+#      define MS_EXPORT 
 #    else
         /* We are using this library */
-#      define MS_EXPORT __declspec(dllimport)
+#      define MS_EXPORT 
 #    endif
 #  endif
 
