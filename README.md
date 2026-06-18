@@ -18,7 +18,7 @@ cmake -DMINESWEEPER_BUILD_SHARED=ON ..
 `minesweeper-lib` handles the core mechanics of a Minesweeper game:
 minefield generation, tile management, flag toggling, win/loss detection,
 and rendering queries via tile sprites. It is designed to be integrated into
-any front-end — CLI, GUI, game engine, etc.
+any front-end. CLI, GUI, game engine, etc.
 
 The library does not handle input, rendering, or windowing. That is left
 entirely to the consumer.
@@ -105,16 +105,16 @@ When opening a safe tile, the library temporarily allocates two internal
 buffers to flood-fill connected empty tiles, both freed before the function
 returns:
 
-- **Work stack** — a dynamic array of `(x, y)` coordinate pairs (8 bytes each
+- **Work stack** - a dynamic array of `(x, y)` coordinate pairs (8 bytes each
   on 64-bit). Initial capacity is `tileCount / 4` entries.
-- **Visited set** — a hash set of tile indices (`int`), using two separate
+- **Visited set** - a hash set of tile indices (`int`), using two separate
   arrays: 4 bytes per entry for the index and 1 byte per entry for its state.
   Initial capacity is `tileCount / 4` entries, growing by doubling when 70%
   full, up to at most `tileCount` entries in the worst case.
 
 On a 30×16 board (`tileCount = 480`), the initial allocation is 120 entries
 each, costing roughly **960 bytes** for the stack and **600 bytes** for the
-set — about **1.5 KB** combined at startup, growing only if the fill is large.
+set. About **1.5 KB** combined at startup, growing only if the fill is large.
 If either allocation fails mid-fill, some tiles that should have been opened
 may not be, and the game is put into the error state. The tile data is not
 corrupted, but further calls to `MS_MinefieldOpenTile` will return early
@@ -136,7 +136,7 @@ switch (state) {
         printf("You lost!\n");
         break;
     case MINESWEEPER_STATE_ALLOC_ERROR:
-        fprintf(stderr, "Out of memory — resetting.\n");
+        fprintf(stderr, "Out of memory - resetting.\n");
         if (!MS_MinefieldReset(&mf, width, height, mines))
             MS_MinefieldDestroy(&mf); /* reset also failed */
         break;
@@ -144,7 +144,7 @@ switch (state) {
 ```
 
 `MS_MinefieldCreate` and `MS_MinefieldReset` return `bool` and do not use
-`MINESWEEPER_STATE_ALLOC_ERROR` — they simply return `false` on failure.
+`MINESWEEPER_STATE_ALLOC_ERROR` they simply return `false` on failure.
 
 ## Rendering
 
@@ -212,7 +212,7 @@ int main(void) {
 
     /* sprites[] is now ready to hand to your renderer */
 
-    /* Reset to a new game — tileCount may change, so reallocate if needed */
+    /* Reset to a new game, tileCount may change, so reallocate if needed */
     MS_MinefieldReset(&mf, 16, 16, 40);
     int newCount = MS_MinefieldGetTileCount(&mf);
     if (newCount != tileCount) {
