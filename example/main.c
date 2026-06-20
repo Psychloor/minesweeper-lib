@@ -31,12 +31,12 @@ int main(int argc, char **argv) {
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             const int x = GetMouseX() / TILE_SIZE;
             const int y = GetMouseY() / TILE_SIZE;
-            MS_MinefieldOpenTile(&minefield, x, y);
+            MS_GameState gameState = MS_MinefieldOpenTile(&minefield, x, y);
 
-            if (MS_MinefieldIsGameOver(&minefield)) {
+            if (gameState == MINESWEEPER_STATE_LOST) {
                 SetWindowTitle("Minesweeper - Game Over!");
             }
-            if (MS_MinefieldIsWin(&minefield)) {
+            if (gameState == MINESWEEPER_STATE_WON) {
                 SetWindowTitle("Minesweeper - You Won!");
             }
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
@@ -56,8 +56,6 @@ int main(int argc, char **argv) {
                     TILE_SIZE_TEX, TILE_SIZE_TEX
                 };
                 const Rectangle destRect = (Rectangle){x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-                DrawTextureRec(tilesTex, sourceRect,
-                               (Vector2){x * TILE_SIZE, y * TILE_SIZE}, WHITE);
                 DrawTexturePro(tilesTex, sourceRect, destRect, (Vector2){0, 0}, 0, WHITE);
             }
         }
@@ -66,6 +64,7 @@ int main(int argc, char **argv) {
     }
 
     UnloadTexture(tilesTex);
+    MS_MinefieldDestroy(&minefield);
 
     CloseWindow();
 }
