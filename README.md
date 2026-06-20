@@ -46,7 +46,7 @@ Then just pull in the one header that includes everything else:
 ├── inc/
 │   └── MS/
 │       ├── Minesweeper.h       # pulls in all the headers below
-│       ├── MS_Minefield.h      # the Minefield struct + the whole API
+│       ├── MS_Minefield.h      # opaque MS_Minefield typedef + the whole API
 │       ├── MS_GameState.h
 │       ├── MS_Tile.h
 │       ├── MS_TileSprite.h
@@ -54,6 +54,26 @@ Then just pull in the one header that includes everything else:
 └── src/
     └── MS_Minefield.c
 ```
+
+## Opaque handle
+
+`MS_Minefield` is an opaque type. The header only forward-declares it, and the actual struct lives in `MS_Minefield.c`, so you only ever work with `MS_Minefield *` and never poke at the fields directly. Layout can change between versions without breaking anyone who linked against an older build.
+
+This means you always create and destroy through the API. No stack-allocating it, no embedding it by value in your own structs.
+
+```c
+MS_Minefield *mf = MS_MinefieldCreate(9, 9, 10);
+if (!mf) {
+    fprintf(stderr, "Failed to create minefield\n");
+    return 1;
+}
+
+// ... use it ...
+
+MS_MinefieldDestroy(mf);
+```
+
+`MS_MinefieldDestroy` accepts `NULL` and does nothing in that case, same as `free`, so you can call it in cleanup paths without checking first.
 
 ## How a tile is stored
 
@@ -76,14 +96,13 @@ So the whole board is just `width * height` bytes, nothing fancier. A 30×16 Exp
 `MS_MinefieldCreate` just sets up an empty board. Mines only get placed the first time you call `MS_MinefieldOpenTile`, which is also why that first click is always guaranteed safe, same as the classic Windows Minesweeper behavior.
 
 ```c
-MS_Minefield mf;
-
-if (!MS_MinefieldCreate(&mf, 9, 9, 10)) {
+MS_Minefield *mf = MS_MinefieldCreate(9, 9, 10);
+if (!mf) {
     fprintf(stderr, "Failed to create minefield\n");
     return 1;
 }
 
-MS_GameState state = MS_MinefieldOpenTile(&mf, 4, 4); // mines get placed right here
+MS_GameState state = MS_MinefieldOpenTile(mf, 4, 4); // mines get placed right here
 ```
 
 ## Game state and the one error case you need to handle
@@ -105,7 +124,7 @@ Both get freed before the function returns either way. On a 30×16 board that's 
 If either allocation fails partway through, you can end up with some tiles that should've opened still closed, and the library flips into the error state. Nothing's corrupted, but `MS_MinefieldOpenTile` will just bail out and do nothing on subsequent calls until you reset or destroy the field. That's really the only way out of it.
 
 ```c
-MS_GameState state = MS_MinefieldOpenTile(&mf, x, y);
+MS_GameState state = MS_MinefieldOpenTile(mf, x, y);
 
 switch (state) {
     case MINESWEEPER_STATE_PLAYING:
@@ -118,13 +137,15 @@ switch (state) {
         break;
     case MINESWEEPER_STATE_ALLOC_ERROR:
         fprintf(stderr, "Out of memory - resetting.\n");
-        if (!MS_MinefieldReset(&mf, width, height, mines))
-            MS_MinefieldDestroy(&mf); // reset failed too, nothing left to do
+        if (!MS_MinefieldReset(mf, width, height, mines)) {
+            MS_MinefieldDestroy(mf); // reset failed too, nothing left to do
+            mf = NULL;
+        }
         break;
 }
 ```
 
-Worth noting: `MS_MinefieldCreate` and `MS_MinefieldReset` don't use this enum at all, they just return `bool`, so a plain `false` means "didn't work."
+Worth noting: `MS_MinefieldCreate` returns `NULL` on failure and `MS_MinefieldReset` returns `bool`, neither uses the game state enum.
 
 ## Rendering: two ways to go about it
 
@@ -159,47 +180,46 @@ void updateSpriteCache(const MS_Minefield *mf, MS_TileSprite *cache) {
 }
 
 int main(void) {
-    MS_Minefield mf;
-
-    if (!MS_MinefieldCreate(&mf, 9, 9, 10)) {
+    MS_Minefield *mf = MS_MinefieldCreate(9, 9, 10);
+    if (!mf) {
         fprintf(stderr, "Failed to create minefield\n");
         return 1;
     }
 
-    int tileCount = MS_MinefieldGetTileCount(&mf);
+    int tileCount = MS_MinefieldGetTileCount(mf);
     MS_TileSprite *sprites = malloc(tileCount * sizeof(MS_TileSprite));
     if (!sprites) {
-        MS_MinefieldDestroy(&mf);
+        MS_MinefieldDestroy(mf);
         return 1;
     }
 
-    updateSpriteCache(&mf, sprites); // fill it right after creation
+    updateSpriteCache(mf, sprites); // fill it right after creation
 
-    MS_GameState state = MS_MinefieldOpenTile(&mf, 4, 4);
-    updateSpriteCache(&mf, sprites);
+    MS_GameState state = MS_MinefieldOpenTile(mf, 4, 4);
+    updateSpriteCache(mf, sprites);
 
-    MS_MinefieldToggleFlag(&mf, 0, 0);
-    updateSpriteCache(&mf, sprites);
+    MS_MinefieldToggleFlag(mf, 0, 0);
+    updateSpriteCache(mf, sprites);
 
     // sprites[] is ready for your renderer at this point
 
     // heads up: tileCount can change after a reset, so resize if it does
-    MS_MinefieldReset(&mf, 16, 16, 40);
-    int newCount = MS_MinefieldGetTileCount(&mf);
+    MS_MinefieldReset(mf, 16, 16, 40);
+    int newCount = MS_MinefieldGetTileCount(mf);
     if (newCount != tileCount) {
         MS_TileSprite *resized = realloc(sprites, newCount * sizeof(MS_TileSprite));
         if (!resized) {
             free(sprites);
-            MS_MinefieldDestroy(&mf);
+            MS_MinefieldDestroy(mf);
             return 1;
         }
         sprites = resized;
         tileCount = newCount;
     }
-    updateSpriteCache(&mf, sprites);
+    updateSpriteCache(mf, sprites);
 
     free(sprites);
-    MS_MinefieldDestroy(&mf);
+    MS_MinefieldDestroy(mf);
     return 0;
 }
 ```
@@ -208,7 +228,7 @@ If you're working from the cache and need actual coordinates back, `MS_Minefield
 
 ```c
 for (int i = 0; i < tileCount; ++i) {
-    MS_Point pos = MS_MinefieldGetTilePosition(&mf, i);
+    MS_Point pos = MS_MinefieldGetTilePosition(mf, i);
     drawTile(pos.x, pos.y, sprites[i]);
 }
 ```
@@ -252,20 +272,19 @@ void printBoard(const MS_Minefield *mf) {
 }
 
 int main(void) {
-    MS_Minefield mf;
-
-    if (!MS_MinefieldCreate(&mf, 9, 9, 10)) {
+    MS_Minefield *mf = MS_MinefieldCreate(9, 9, 10);
+    if (!mf) {
         fprintf(stderr, "Failed to create minefield\n");
         return 1;
     }
 
-    MS_GameState state = MS_MinefieldOpenTile(&mf, 4, 4);
-    printBoard(&mf);
+    MS_GameState state = MS_MinefieldOpenTile(mf, 4, 4);
+    printBoard(mf);
 
     if (state == MINESWEEPER_STATE_PLAYING) {
-        MS_MinefieldToggleFlag(&mf, 0, 0);
-        state = MS_MinefieldOpenTile(&mf, 1, 1);
-        printBoard(&mf);
+        MS_MinefieldToggleFlag(mf, 0, 0);
+        state = MS_MinefieldOpenTile(mf, 1, 1);
+        printBoard(mf);
     }
 
     switch (state) {
@@ -273,7 +292,7 @@ int main(void) {
             printf("You won!\n");
             break;
         case MINESWEEPER_STATE_LOST: {
-            MS_Point explosion = MS_MinefieldGetExplosionPoint(&mf);
+            MS_Point explosion = MS_MinefieldGetExplosionPoint(mf);
             printf("You lost! Mine at (%d, %d)\n", explosion.x, explosion.y);
             break;
         }
@@ -284,8 +303,8 @@ int main(void) {
             break;
     }
 
-    MS_MinefieldReset(&mf, 16, 16, 40);
-    MS_MinefieldDestroy(&mf);
+    MS_MinefieldReset(mf, 16, 16, 40);
+    MS_MinefieldDestroy(mf);
     return 0;
 }
 ```
@@ -294,9 +313,9 @@ int main(void) {
 
 | Function | What it does |
 |---|---|
-| `MS_MinefieldCreate` | Set up a minefield and allocate its tiles |
-| `MS_MinefieldReset` | Reuse the same object for a fresh game |
-| `MS_MinefieldDestroy` | Free the tile memory |
+| `MS_MinefieldCreate` | Allocate and set up a minefield, returns `MS_Minefield *` or `NULL` on failure |
+| `MS_MinefieldReset` | Reuse an existing minefield for a fresh game |
+| `MS_MinefieldDestroy` | Free the minefield and its tiles, safe to call on `NULL` |
 | `MS_MinefieldOpenTile` | Open a tile, get back the new `MS_GameState` |
 | `MS_MinefieldToggleFlag` | Cycle a tile: none → flag → question mark → none |
 | `MS_MinefieldGetTileSprite` | Sprite for a tile by `(x, y)` |
