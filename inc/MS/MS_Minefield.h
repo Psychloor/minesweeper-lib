@@ -9,6 +9,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /**
@@ -39,16 +40,7 @@ extern "C" {
  * details where possible. Prefer the MS_Minefield* API functions for creating,
  * resetting, modifying, querying, and destroying the minefield.
  */
-typedef struct MS_Minefield {
-    MS_Tile *tiles;
-    int width;
-    int height;
-    int tileCount;
-    int numMines;
-    MS_GameState state;
-    int firstOpen;
-    MS_Point explosionPos;
-} MS_Minefield;
+typedef struct MS_Minefield MS_Minefield;
 
 /**
  * @brief Initializes and creates a minefield with specified dimensions and number of mines.
@@ -57,14 +49,13 @@ typedef struct MS_Minefield {
  * of mines and resets its internal states. It ensures the minefield pointer is valid
  * and that the necessary initializations for the tiles are carried out.
  *
- * @param minefield A pointer to the Minefield structure to be initialized. Must not be null.
  * @param width The width of the minefield in tiles.
  * @param height The height of the minefield in tiles.
  * @param numMines The number of mines to be placed within the minefield.
  * @return Returns true if the minefield was successfully created and initialized,
  *         false if the input minefield pointer is null or initialization fails.
  */
-MS_EXPORT bool MS_MinefieldCreate(MS_Minefield *minefield, int width, int height, int numMines);
+MS_EXPORT MS_Minefield *MS_MinefieldCreate(int width, int height, int numMines);
 
 /**
  * @brief Resets and initializes the minefield with the specified parameters.

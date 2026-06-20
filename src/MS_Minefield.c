@@ -8,6 +8,17 @@
 #include <stdlib.h>
 #include <time.h>
 
+struct MS_Minefield {
+    MS_Tile *tiles;
+    int width;
+    int height;
+    int tileCount;
+    int numMines;
+    MS_GameState state;
+    int firstOpen;
+    MS_Point explosionPos;
+};
+
 MS_VECTOR_DEFINE(MS_Point, ms_234564334534_PointVector);
 
 static uint32_t ms_234564334534_int_hash(const int value) {
@@ -70,7 +81,8 @@ uint8_t inline ms_234564334534_minesNearTile(const MS_Minefield *minefield, cons
 
 void ms_234564334534_countAdjacentMines(const MS_Minefield *minefield) {
     for (int i = 0; i < minefield->tileCount; ++i) {
-        minefield->tiles[i].adjacentMines = ms_234564334534_minesNearTile(minefield, i % minefield->width, i / minefield->width);
+        minefield->tiles[i].adjacentMines = ms_234564334534_minesNearTile(
+            minefield, i % minefield->width, i / minefield->width);
     }
 }
 
@@ -115,7 +127,9 @@ bool ms_234564334534_openNearbyTiles(const MS_Minefield *minefield, const int xP
                 const int neighbourY = MS_TilePos.y + y;
                 if (!ms_234564334534_isInsideRange(minefield, neighbourX, neighbourY))
                     continue;
-                if (ms_234564334534_IntSet_contains(&visitedTiles, neighbourY * minefield->width + neighbourX)) continue;
+                if (ms_234564334534_IntSet_contains(&visitedTiles, neighbourY * minefield->width + neighbourX))
+                    continue
+                            ;
 
                 if (!ms_234564334534_PointVector_push(&tilesToOpen, (MS_Point){neighbourX, neighbourY})) {
                     ms_234564334534_PointVector_destroy(&tilesToOpen);
@@ -157,15 +171,18 @@ void ms_234564334534_checkWinCondition(MS_Minefield *minefield) {
     minefield->state = MINESWEEPER_STATE_WON;
 }
 
-bool MS_MinefieldCreate(MS_Minefield *minefield, const int width, const int height, const int numMines) {
-    assert(minefield != NULL && "Minefield cannot be null");
-    if (!minefield) {
-        return false;
-    }
+MS_Minefield *MS_MinefieldCreate(const int width, const int height, const int numMines) {
+    MS_Minefield *mf = malloc(sizeof(*mf));
+    if (!mf) return NULL;
 
-    minefield->tileCount = 0;
-    minefield->tiles = NULL;
-    return MS_MinefieldReset(minefield, width, height, numMines);
+    mf->tileCount = 0;
+    mf->tiles = NULL;
+
+    if (!MS_MinefieldReset(mf, width, height, numMines)) {
+        free(mf);
+        return NULL;
+    }
+    return mf;
 }
 
 bool MS_MinefieldReset(MS_Minefield *minefield, const int width, const int height, const int numMines) {
@@ -208,17 +225,9 @@ bool MS_MinefieldReset(MS_Minefield *minefield, const int width, const int heigh
 }
 
 void MS_MinefieldDestroy(MS_Minefield *minefield) {
-    if (minefield != NULL) {
-        free(minefield->tiles);
-        minefield->tiles = NULL;
-        minefield->width = 0;
-        minefield->height = 0;
-        minefield->tileCount = 0;
-        minefield->numMines = 0;
-        minefield->state = MINESWEEPER_STATE_ALLOC_ERROR;
-        minefield->firstOpen = false;
-        minefield->explosionPos = (MS_Point){-1, -1};
-    }
+    if (!minefield) return;
+    free(minefield->tiles);
+    free(minefield);
 }
 
 MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, const int xPos, const int yPos) {
