@@ -8,6 +8,7 @@ include(GenerateExportHeader)
 
 # Support BUILD_SHARED_LIBS or explicit option
 option(MINESWEEPER_BUILD_SHARED "Build as shared library" ${BUILD_SHARED_LIBS})
+option(MINESWEEPER_BUILD_EXAMPLE "Build example (requires raylib)")
 
 if(MINESWEEPER_BUILD_SHARED)
     set(LIB_TYPE SHARED)
@@ -39,3 +40,7 @@ target_include_directories(minesweeper-lib
 target_compile_features(minesweeper-lib
         PUBLIC
         c_std_99)
+
+if(MINESWEEPER_BUILD_EXAMPLE)
+    add_subdirectory(example EXCLUDE_FROM_ALL)
+endif ()
