@@ -105,23 +105,15 @@ if (!mf) {
 MS_GameState state = MS_MinefieldOpenTile(mf, 4, 4); // mines get placed right here
 ```
 
-## Game state and the one error case you need to handle
+## Game state
 
-`MS_GameState` has four values:
+`MS_GameState` has three values:
 
 - `MINESWEEPER_STATE_PLAYING`: still going
 - `MINESWEEPER_STATE_WON`: every non-mine tile is open (flagged ones count too)
 - `MINESWEEPER_STATE_LOST`: stepped on a mine
-- `MINESWEEPER_STATE_ALLOC_ERROR`: something failed to allocate mid-move
 
-That last one only ever comes out of `MS_MinefieldOpenTile`. Here's why it exists: opening a tile on an empty patch of board triggers a flood-fill to clear out all the connected zeros, and that flood-fill needs two scratch buffers along the way:
-
-- A work stack of `(x, y)` pairs to visit (8 bytes each on 64-bit), starting at `tileCount / 4` entries.
-- A visited set, implemented as a hash set over tile indices: 4 bytes per entry for the index plus 1 byte for its state, also starting at `tileCount / 4` and doubling once it's 70% full, up to `tileCount` entries worst case.
-
-Both get freed before the function returns either way. On a 30×16 board that's about 960 bytes for the stack and 600 for the set to start, call it 1.5 KB, and it only grows if the empty area you opened is huge.
-
-If either allocation fails partway through, you can end up with some tiles that should've opened still closed, and the library flips into the error state. Nothing's corrupted, but `MS_MinefieldOpenTile` will just bail out and do nothing on subsequent calls until you reset or destroy the field. That's really the only way out of it.
+That's the whole enum. `MS_MinefieldOpenTile` returns one of those, and there's no allocation failure case to worry about, because the flood-fill scratch buffers live inside the minefield itself and are sized at create/reset time. More on that below.
 
 ```c
 MS_GameState state = MS_MinefieldOpenTile(mf, x, y);
@@ -135,17 +127,28 @@ switch (state) {
     case MINESWEEPER_STATE_LOST:
         printf("You lost!\n");
         break;
-    case MINESWEEPER_STATE_ALLOC_ERROR:
-        fprintf(stderr, "Out of memory - resetting.\n");
-        if (!MS_MinefieldReset(mf, width, height, mines)) {
-            MS_MinefieldDestroy(mf); // reset failed too, nothing left to do
-            mf = NULL;
-        }
-        break;
 }
 ```
 
-Worth noting: `MS_MinefieldCreate` returns `NULL` on failure and `MS_MinefieldReset` returns `bool`, neither uses the game state enum.
+`MS_MinefieldCreate` returns `NULL` on failure and `MS_MinefieldReset` returns `bool`, so check those at the boundary. Once you've got a valid minefield, the per-move API can't fail on you.
+
+## Memory layout
+
+The minefield owns three buffers, all sized to the board:
+
+- **Tile array**: 1 byte per tile (`width * height` bytes).
+- **Flood-fill work stack**: a vector of `MS_Point` (8 bytes each on 64-bit), capacity equal to the tile count.
+- **Flood-fill visited bitset**: one bit per tile, so `ceil(tileCount / 8)` bytes.
+
+So for a 30×16 Expert board:
+
+- Tiles: 480 bytes
+- Work stack: 480 × 8 = ~3.75 KB
+- Visited bitset: 60 bytes
+
+About 4.3 KB total for everything except the bookkeeping in the struct itself. The buffers are sized once at create time and resized only if you call `MS_MinefieldReset` with new dimensions. After that, `MS_MinefieldOpenTile` reuses them across every call and never allocates.
+
+The flood fill visits each tile at most once, so neither buffer can overflow during a fill: the work stack tops out at `tileCount` entries and the bitset's address space is exactly `tileCount` bits. No growth, no probing, no failure mode.
 
 ## Rendering: two ways to go about it
 
@@ -296,9 +299,6 @@ int main(void) {
             printf("You lost! Mine at (%d, %d)\n", explosion.x, explosion.y);
             break;
         }
-        case MINESWEEPER_STATE_ALLOC_ERROR:
-            fprintf(stderr, "Allocation error during game\n");
-            break;
         default:
             break;
     }
@@ -311,23 +311,23 @@ int main(void) {
 
 ## Full API
 
-| Function | What it does |
-|---|---|
-| `MS_MinefieldCreate` | Allocate and set up a minefield, returns `MS_Minefield *` or `NULL` on failure |
-| `MS_MinefieldReset` | Reuse an existing minefield for a fresh game |
-| `MS_MinefieldDestroy` | Free the minefield and its tiles, safe to call on `NULL` |
-| `MS_MinefieldOpenTile` | Open a tile, get back the new `MS_GameState` |
-| `MS_MinefieldToggleFlag` | Cycle a tile: none → flag → question mark → none |
-| `MS_MinefieldGetTileSprite` | Sprite for a tile by `(x, y)` |
-| `MS_MinefieldGetTileSpriteIndex` | Sprite for a tile by linear index |
-| `MS_MinefieldGetGameState` | Current `MS_GameState` |
-| `MS_MinefieldIsGameOver` | True if you lost |
-| `MS_MinefieldIsWin` | True if you won |
-| `MS_MinefieldGetExplosionPoint` | Where the game-ending mine was |
-| `MS_MinefieldWithinField` | Is `(x, y)` actually on the board |
-| `MS_MinefieldGetWidth` | Board width |
-| `MS_MinefieldGetHeight` | Board height |
-| `MS_MinefieldGetTileCount` | `width * height` |
-| `MS_MinefieldGetMineCount` | How many mines |
-| `MS_MinefieldGetTilePosition` | Linear index → `(x, y)` |
-| `MS_MinefieldGetTileIndex` | `(x, y)` → linear index |
+| Function                         | What it does                                                                   |
+|----------------------------------|--------------------------------------------------------------------------------|
+| `MS_MinefieldCreate`             | Allocate and set up a minefield, returns `MS_Minefield *` or `NULL` on failure |
+| `MS_MinefieldReset`              | Reuse an existing minefield for a fresh game                                   |
+| `MS_MinefieldDestroy`            | Free the minefield and everything it owns, safe to call on `NULL`              |
+| `MS_MinefieldOpenTile`           | Open a tile, get back the new `MS_GameState`                                   |
+| `MS_MinefieldToggleFlag`         | Cycle a tile: none → flag → question mark → none                               |
+| `MS_MinefieldGetTileSprite`      | Sprite for a tile by `(x, y)`                                                  |
+| `MS_MinefieldGetTileSpriteIndex` | Sprite for a tile by linear index                                              |
+| `MS_MinefieldGetGameState`       | Current `MS_GameState`                                                         |
+| `MS_MinefieldIsGameOver`         | True if you lost                                                               |
+| `MS_MinefieldIsWin`              | True if you won                                                                |
+| `MS_MinefieldGetExplosionPoint`  | Where the game-ending mine was                                                 |
+| `MS_MinefieldWithinField`        | Is `(x, y)` actually on the board                                              |
+| `MS_MinefieldGetWidth`           | Board width                                                                    |
+| `MS_MinefieldGetHeight`          | Board height                                                                   |
+| `MS_MinefieldGetTileCount`       | `width * height`                                                               |
+| `MS_MinefieldGetMineCount`       | How many mines                                                                 |
+| `MS_MinefieldGetTilePosition`    | Linear index → `(x, y)`                                                        |
+| `MS_MinefieldGetTileIndex`       | `(x, y)` → linear index                                                        |

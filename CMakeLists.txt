@@ -41,6 +41,7 @@ target_compile_features(minesweeper-lib
         PUBLIC
         c_std_99)
 
+set(MINESWEEPER_BUILD_EXAMPLE ON)
 if(MINESWEEPER_BUILD_EXAMPLE)
     add_subdirectory(example EXCLUDE_FROM_ALL)
 endif ()

@@ -13,32 +13,19 @@ extern "C" {
 #endif
 
 /**
- * @struct MS_Minefield
- * @brief Represents the grid-based minefield in the Minesweeper game.
+ * @brief Opaque handle representing a Minesweeper minefield instance.
  *
- * A Minefield object is intended to be owned directly by the caller and can
- * safely be stored on the stack:
+ * `MS_Minefield` stores the state of a Minesweeper board, including its
+ * dimensions, tiles, mine placement, current game state, and related runtime
+ * data.
  *
- * @code
- * MS_Minefield minefield;
- * if (!MS_MinefieldCreate(&minefield, 16, 16, 40)) {
- *     // handle allocation failure
- * }
+ * The structure definition is intentionally hidden from public headers.
+ * Users should create, manipulate, query, and destroy minefields only through
+ * the `MS_Minefield*` API functions.
  *
- * // use minefield...
- *
- * MS_MinefieldDestroy(&minefield);
- * @endcode
- *
- * The Minefield structure itself does not need to be dynamically allocated.
- * MS_MinefieldCreate initializes the structure and allocates the internal tile
- * array. MS_MinefieldDestroy releases that internal tile memory when the caller
- * is done with the minefield.
- *
- * @note The struct definition is exposed primarily so MS_Minefield has a known
- * size to user code and can be stack allocated. Treat the fields as implementation
- * details where possible. Prefer the MS_Minefield* API functions for creating,
- * resetting, modifying, querying, and destroying the minefield.
+ * @see MS_MinefieldCreate
+ * @see MS_MinefieldReset
+ * @see MS_MinefieldDestroy
  */
 typedef struct MS_Minefield MS_Minefield;
 
@@ -106,7 +93,6 @@ MS_EXPORT void MS_MinefieldDestroy(MS_Minefield *minefield);
  *         - MINESWEEPER_STATE_PLAYING: The game is still ongoing after the operation.
  *         - MINESWEEPER_STATE_LOST: A mine was uncovered, and the game is lost.
  *         - MINESWEEPER_STATE_WON: All non-mine tiles have been successfully opened, and the game is won.
- *         - MINESWEEPER_STATE_ALLOC_ERROR: An error occurred due to memory allocation failure during the operation.
  */
 MS_EXPORT MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, int xPos, int yPos);
 

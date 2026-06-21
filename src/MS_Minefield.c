@@ -2,12 +2,15 @@
 
 #include <assert.h>
 
-#include "MS/MS_Set.h"
+#include "MS/MS_Bitset.h"
 #include "MS/MS_Vector.h"
 
 #include <stdlib.h>
 #include <time.h>
 
+MS_VECTOR_DEFINE(MS_Point, ms_internal_PointVector);
+
+// ReSharper disable once CppClassNeverUsed
 struct MS_Minefield {
     MS_Tile *tiles;
     int width;
@@ -15,31 +18,23 @@ struct MS_Minefield {
     int tileCount;
     int numMines;
     MS_GameState state;
-    int firstOpen;
+    bool firstOpen;
     MS_Point explosionPos;
+
+    // Flood-Fill
+    ms_internal_PointVector tilesToOpen;
+    MS_Bitset visitedTiles;
 };
 
-MS_VECTOR_DEFINE(MS_Point, ms_234564334534_PointVector);
-
-static uint32_t ms_234564334534_int_hash(const int value) {
-    return (uint32_t) value * 2654435761u;
-}
-
-static bool ms_234564334534_int_equals(const int a, const int b) {
-    return a == b;
-}
-
-MS_SET_DEFINE(int, ms_234564334534_IntSet, ms_234564334534_int_hash, ms_234564334534_int_equals);
-
-bool ms_234564334534_isInsideRange(const MS_Minefield *minefield, const int xPos, const int yPos) {
+bool ms_internal_isInsideRange(const MS_Minefield *minefield, const int xPos, const int yPos) {
     return xPos >= 0 && xPos < minefield->width && yPos >= 0 && yPos < minefield->height;
 }
 
-int ms_234564334534_clamp(const int value, const int min, const int max) {
+int ms_internal_clamp(const int value, const int min, const int max) {
     return value < min ? min : value > max ? max : value;
 }
 
-void ms_234564334534_placeMines(const MS_Minefield *minefield, const int firstX, const int firstY) {
+void ms_internal_placeMines(const MS_Minefield *minefield, const int firstX, const int firstY) {
     // for a minesweeper game, this is random enough. no need for tech bros to swarm you
     // about their crypto secure random number generator
     srand(time(NULL)); // NOLINT(*-msc51-cpp)
@@ -59,7 +54,7 @@ void ms_234564334534_placeMines(const MS_Minefield *minefield, const int firstX,
     }
 }
 
-uint8_t inline ms_234564334534_minesNearTile(const MS_Minefield *minefield, const int xPos, const int yPos) {
+uint8_t inline ms_internal_minesNearTile(const MS_Minefield *minefield, const int xPos, const int yPos) {
     if (minefield->tiles[yPos * minefield->width + xPos].isMine)
         return 0;
 
@@ -69,7 +64,7 @@ uint8_t inline ms_234564334534_minesNearTile(const MS_Minefield *minefield, cons
             if (x == xPos && y == yPos)
                 continue;
 
-            if (ms_234564334534_isInsideRange(minefield, x, y)) {
+            if (ms_internal_isInsideRange(minefield, x, y)) {
                 if (minefield->tiles[y * minefield->width + x].isMine) {
                     ++mines;
                 }
@@ -79,40 +74,20 @@ uint8_t inline ms_234564334534_minesNearTile(const MS_Minefield *minefield, cons
     return mines;
 }
 
-void ms_234564334534_countAdjacentMines(const MS_Minefield *minefield) {
+void ms_internal_countAdjacentMines(const MS_Minefield *minefield) {
     for (int i = 0; i < minefield->tileCount; ++i) {
-        minefield->tiles[i].adjacentMines = ms_234564334534_minesNearTile(
+        minefield->tiles[i].adjacentMines = ms_internal_minesNearTile(
             minefield, i % minefield->width, i / minefield->width);
     }
 }
 
-bool ms_234564334534_openNearbyTiles(const MS_Minefield *minefield, const int xPos, const int yPos) {
-    ms_234564334534_PointVector tilesToOpen;
-    if (!ms_234564334534_PointVector_create(&tilesToOpen, (minefield->tileCount) >> 2)) {
-        return false;
-    }
+bool ms_internal_openNearbyTiles(MS_Minefield *minefield, const int xPos, const int yPos) {
+    ms_internal_PointVector_push(&minefield->tilesToOpen, (MS_Point){xPos, yPos});
+    MS_Bitset_set(&minefield->visitedTiles, yPos * minefield->width + xPos);
 
-    ms_234564334534_IntSet visitedTiles;
-    if (!ms_234564334534_IntSet_create(&visitedTiles, (minefield->tileCount) >> 2)) {
-        ms_234564334534_PointVector_destroy(&tilesToOpen);
-        return false;
-    }
-
-    if (!ms_234564334534_PointVector_push(&tilesToOpen, (MS_Point){xPos, yPos})) {
-        ms_234564334534_PointVector_destroy(&tilesToOpen);
-        ms_234564334534_IntSet_destroy(&visitedTiles);
-        return false;
-    }
-
-    if (!ms_234564334534_IntSet_insert(&visitedTiles, yPos * minefield->width + xPos)) {
-        ms_234564334534_PointVector_destroy(&tilesToOpen);
-        ms_234564334534_IntSet_destroy(&visitedTiles);
-        return false;
-    }
-
-    while (!ms_234564334534_PointVector_is_empty(&tilesToOpen)) {
+    while (!ms_internal_PointVector_is_empty(&minefield->tilesToOpen)) {
         MS_Point MS_TilePos;
-        ms_234564334534_PointVector_pop(&tilesToOpen, &MS_TilePos);
+        ms_internal_PointVector_pop(&minefield->tilesToOpen, &MS_TilePos);
 
         MS_Tile *currentMS_Tile = &minefield->tiles[MS_TilePos.y * minefield->width + MS_TilePos.x];
         if (currentMS_Tile->isOpen || currentMS_Tile->isFlagged || currentMS_Tile->isMine) continue;
@@ -125,33 +100,26 @@ bool ms_234564334534_openNearbyTiles(const MS_Minefield *minefield, const int xP
                 if (x == 0 && y == 0) continue;
                 const int neighbourX = MS_TilePos.x + x;
                 const int neighbourY = MS_TilePos.y + y;
-                if (!ms_234564334534_isInsideRange(minefield, neighbourX, neighbourY))
-                    continue;
-                if (ms_234564334534_IntSet_contains(&visitedTiles, neighbourY * minefield->width + neighbourX))
-                    continue
-                            ;
 
-                if (!ms_234564334534_PointVector_push(&tilesToOpen, (MS_Point){neighbourX, neighbourY})) {
-                    ms_234564334534_PointVector_destroy(&tilesToOpen);
-                    ms_234564334534_IntSet_destroy(&visitedTiles);
-                    return false;
-                }
-                if (!ms_234564334534_IntSet_insert(&visitedTiles, neighbourY * minefield->width + neighbourX)) {
-                    ms_234564334534_PointVector_destroy(&tilesToOpen);
-                    ms_234564334534_IntSet_destroy(&visitedTiles);
-                    return false;
-                }
+                if (!ms_internal_isInsideRange(minefield, neighbourX, neighbourY))
+                    continue;
+
+                const int neighbourIndex = neighbourY * minefield->width + neighbourX;
+                if (MS_Bitset_contains(&minefield->visitedTiles, neighbourIndex))
+                    continue;
+
+                ms_internal_PointVector_push(&minefield->tilesToOpen, (MS_Point){neighbourX, neighbourY});
+                MS_Bitset_set(&minefield->visitedTiles, neighbourIndex);
             }
         }
     }
 
-    ms_234564334534_PointVector_destroy(&tilesToOpen);
-    ms_234564334534_IntSet_destroy(&visitedTiles);
-
+    ms_internal_PointVector_clear(&minefield->tilesToOpen);
+    MS_Bitset_clear(&minefield->visitedTiles);
     return true;
 }
 
-void ms_234564334534_openAllMines(const MS_Minefield *minefield) {
+void ms_internal_openAllMines(const MS_Minefield *minefield) {
     for (int i = 0; i < minefield->tileCount; ++i) {
         if (minefield->tiles[i].isMine && !minefield->tiles[i].isFlagged) {
             minefield->tiles[i].isOpen = true;
@@ -159,7 +127,7 @@ void ms_234564334534_openAllMines(const MS_Minefield *minefield) {
     }
 }
 
-void ms_234564334534_checkWinCondition(MS_Minefield *minefield) {
+void ms_internal_checkWinCondition(MS_Minefield *minefield) {
     for (int i = 0; i < minefield->tileCount; ++i) {
         const MS_Tile *MS_Tile = &minefield->tiles[i];
         if (!MS_Tile->isMine && !MS_Tile->isOpen) {
@@ -167,7 +135,7 @@ void ms_234564334534_checkWinCondition(MS_Minefield *minefield) {
         }
     }
 
-    ms_234564334534_openAllMines(minefield);
+    ms_internal_openAllMines(minefield);
     minefield->state = MINESWEEPER_STATE_WON;
 }
 
@@ -178,7 +146,19 @@ MS_Minefield *MS_MinefieldCreate(const int width, const int height, const int nu
     mf->tileCount = 0;
     mf->tiles = NULL;
 
+    if (!ms_internal_PointVector_create(&mf->tilesToOpen, 0)) {
+        free(mf);
+        return NULL;
+    }
+    if (!MS_Bitset_create(&mf->visitedTiles, 1)) {
+        ms_internal_PointVector_destroy(&mf->tilesToOpen);
+        free(mf);
+        return NULL;
+    }
+
     if (!MS_MinefieldReset(mf, width, height, numMines)) {
+        ms_internal_PointVector_destroy(&mf->tilesToOpen);
+        MS_Bitset_destroy(&mf->visitedTiles);
         free(mf);
         return NULL;
     }
@@ -200,6 +180,13 @@ bool MS_MinefieldReset(MS_Minefield *minefield, const int width, const int heigh
     const int tileCount = width * height;
 
     if (tileCount != minefield->tileCount) {
+        if (!ms_internal_PointVector_resize(&minefield->tilesToOpen, tileCount)) {
+            return false;
+        }
+        if (!MS_Bitset_resize(&minefield->visitedTiles, tileCount)) {
+            return false;
+        }
+
         MS_Tile *reallocatedTiles = realloc(minefield->tiles, tileCount * sizeof(MS_Tile));
         if (!reallocatedTiles) {
             return false;
@@ -207,25 +194,25 @@ bool MS_MinefieldReset(MS_Minefield *minefield, const int width, const int heigh
         minefield->tiles = reallocatedTiles;
     }
 
-    MS_Tile *tiles = minefield->tiles;
-    memset(minefield, 0, sizeof(MS_Minefield));
-
-    minefield->tiles = tiles;
     minefield->tileCount = tileCount;
     minefield->width = width;
     minefield->height = height;
-    minefield->numMines = ms_234564334534_clamp(numMines, 1, tileCount >> 1);
+    minefield->numMines = ms_internal_clamp(numMines, 1, tileCount >> 1);
     minefield->firstOpen = true;
     minefield->explosionPos = (MS_Point){-1, -1};
     minefield->state = MINESWEEPER_STATE_PLAYING;
 
     memset(minefield->tiles, 0, tileCount * sizeof(MS_Tile));
+    ms_internal_PointVector_clear(&minefield->tilesToOpen);
+    MS_Bitset_clear(&minefield->visitedTiles);
 
     return true;
 }
 
 void MS_MinefieldDestroy(MS_Minefield *minefield) {
     if (!minefield) return;
+    ms_internal_PointVector_destroy(&minefield->tilesToOpen);
+    MS_Bitset_destroy(&minefield->visitedTiles);
     free(minefield->tiles);
     free(minefield);
 }
@@ -237,8 +224,8 @@ MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, const int xPos, const
     if (minefield->state != MINESWEEPER_STATE_PLAYING) return minefield->state;
 
     if (minefield->firstOpen) {
-        ms_234564334534_placeMines(minefield, xPos, yPos);
-        ms_234564334534_countAdjacentMines(minefield);
+        ms_internal_placeMines(minefield, xPos, yPos);
+        ms_internal_countAdjacentMines(minefield);
         minefield->firstOpen = false;
     }
 
@@ -250,14 +237,11 @@ MS_GameState MS_MinefieldOpenTile(MS_Minefield *minefield, const int xPos, const
         MS_Tile->isQuestionMarked = false;
         minefield->explosionPos.x = xPos;
         minefield->explosionPos.y = yPos;
-        ms_234564334534_openAllMines(minefield);
+        ms_internal_openAllMines(minefield);
         minefield->state = MINESWEEPER_STATE_LOST;
     } else {
-        if (!ms_234564334534_openNearbyTiles(minefield, xPos, yPos)) {
-            minefield->state = MINESWEEPER_STATE_ALLOC_ERROR;
-            return MINESWEEPER_STATE_ALLOC_ERROR;
-        }
-        ms_234564334534_checkWinCondition(minefield);
+        ms_internal_openNearbyTiles(minefield, xPos, yPos);
+        ms_internal_checkWinCondition(minefield);
     }
 
     return minefield->state;
@@ -368,7 +352,7 @@ MS_Point MS_MinefieldGetTilePosition(const MS_Minefield *minefield, const int ti
 
 int MS_MinefieldGetTileIndex(const MS_Minefield *minefield, const int xPos, const int yPos) {
     assert(minefield != NULL && "Minefield cannot be null");
-    assert(ms_234564334534_isInsideRange(minefield, xPos, yPos) && "Tile position is out of range");
+    assert(ms_internal_isInsideRange(minefield, xPos, yPos) && "Tile position is out of range");
     return yPos * minefield->width + xPos;
 }
 
